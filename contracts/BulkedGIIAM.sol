@@ -40,6 +40,22 @@ contract BulkedGIIAM {
     string name;
     uint64 blockHeight;
   }
+  // ソートが行われているか確認する
+  struct CheckSort {
+    uint16 middle;
+    uint8 to;
+    uint8 owner;
+  }
+  struct KeyInfo {
+    uint40 keyIDSpace;
+    uint32 keyRange;
+    uint16 startOfRange;
+    uint16 endOfRange;
+  }
+  struct Tmp {
+    uint32 newKeyRange;
+    uint8 i;
+  }
   
   /*** 変数のマッピング ***/
   /* SLDc: 40bit, ic: 64bitのucode */
@@ -211,86 +227,141 @@ contract BulkedGIIAM {
   
 
   //  譲渡トランザクションの生成
-  function transferIDSpace64(uint72 _keyIDSpaceAndRange, uint16[] _middleOfRange, uint8[] _toPlace, uint8[] _ownerPlace,
-			     address[] _toAddress, uint8[] _v, bytes32[] _r, bytes32[] _s) public returns(bool){
+  function transferIDSpace64(uint72 _keyIDSpaceAndRange, uint128 _validateBlockHeight, uint16[] _middleOfRange, uint8[] _toPlace, uint8[] _ownerPlace, address[] _to,
+			     uint8[] memory _v, bytes32[] memory _r, bytes32[] memory _s) public returns(bool){
     /** 変数の宣言 **/
     // IDの設定
-    uint40 keyIDSpace = uint40(_keyIDSpaceAndRange >> 32);
-    uint32 keyRange = uint32(_keyIDSpaceAndRange);
+    KeyInfo storage keyInfo;
+    keyInfo.keyIDSpace = uint40(_keyIDSpaceAndRange >> 32);
+    keyInfo.keyRange = uint32(_keyIDSpaceAndRange);
     // 開始と終了Rangeの設定
-    uint16 startOfRange = uint16(keyRange >> 16);
-    uint16 endOfRange = uint16(keyRange);
-    // 分割サイズ
-    uint8 divSize = _middleOfRange.length + 1;
-    // 外部所有者と所有者のサイズ
-    uint8 exOwnerSize = _toPlace.length; // これとownerSizeの和がdivSizeと等しくなる必要がある
-    uint8 ownerSize = _ownerPlace.length;
+    keyInfo.startOfRange = uint16(keyInfo.keyRange >> 16);
+    keyInfo.endOfRange = uint16(keyInfo.keyRange);
     // IDと所有者の入力においてソートが行われているか確認する一時変数
-    uint8 checkIDSort;
+    CheckSort storage check;
+    /*
+    uint16 checkIDSort;
+    uint8 checkToSort;
     uint8 checkOwnerSort;
+    */
+
+    // ストレージ変数
+    Tmp storage tmp;
 
     /** 入力に対するエラー処理 **/
     // ID空間所有者が作成したTxか
-    if (record64[keyIDSpace][keyRange].owner.addr != msg.sender) {
+    if (record64[keyInfo.keyIDSpace][keyInfo.keyRange].owner.addr != msg.sender) {
       proc = -31;
       return false;
     }
     // 譲渡が可能なID空間か
-    if (!valid64[keyOfIDSpace][keyOfRange]) {
+    if (!valid64[keyInfo.keyIDSpace][keyInfo.keyRange]) {
       proc = -32;
       return false;
     }
+    // 現在のブロック高がTxが有効であるブロック高を超えたら無効になる
+    if (block.number > _validateBlockHeight) {
+      proc = -321;
+      return false;
+    }
     // 入力数が分割数限界以下の範囲に収まっているか
-    if (_middleOfRange.length > divLimit) {
+    if ((_middleOfRange.length + 1) > divLimit) {
       proc = -33;
       return false;
     }
     // 分割の開始と終了がkeyOfRangeの範囲に収まっているか
-    if ((startOfRange > _middleOfRange[0]) || (endOfRange < _middleOfRange[_middleOfRange.length - 1])) {
+    if ((_middleOfRange[0] < keyInfo.startOfRange) || (keyInfo.endOfRange < _middleOfRange[_middleOfRange.length - 1])) {
       proc = -34;
       return false;
     }    
     // 分割がソートされているか確認
-    checkIDSort = _middleOfRange[0];
-    for (uint8 i = 1; i < _middleOfRange.length; i++) {
-      if (!(checkIDSort < _middleOfRange[i])) {
+    check.middle = _middleOfRange[0];
+    for (tmp.i = 1; tmp.i < _middleOfRange.length; tmp.i++) {
+      if (!(check.middle < _middleOfRange[tmp.i])) {
 	proc = -35;
 	return false;
       }
-      checkIDSort = _middleOfRange[i];
+      check.middle = _middleOfRange[tmp.i];
     }
     // 所有者が所有する分割対象数が一致するかどうか
-    if ((_toPlace.length + _ownerPlace.length) != _middleOfRange.length) {
+    if ((_toPlace.length + _ownerPlace.length) != (_middleOfRange.length + 1)) {
       proc = -36;
       return false;
     }
-    // 
-    
-    // 所有者が所有する分割対象がdivSizeの範囲に収まっているか   
-    checkOwnerSort = _ownerPlace[0];
-    for (uint8 i = 1; i < _ownerPlace.length; i++) {
-      if (!(checkOwnerSort < _middleOfRange[i])) {
-	proc = -24;
+    // 所有者が指定した空間と所有者の人数が一致する必要
+    if (_toPlace.length != _to.length) {
+      proc = -361;
+      return false;
+    }    
+    // 所有者が新たに所有するID空間の範囲が正しいか確認(0-_middleOfRange.lengthであることに注意！(ゼロオリジン))
+    if ((_ownerPlace[0] < 0) || (_ownerPlace[_ownerPlace.length - 1] < _middleOfRange.length)) {
+      proc = -37;
+      return false;
+    }
+    // 所有者が所有する分割対象がdivSizeの範囲に収まっているか(この条件を満たすために入力を階段状にする必要がある)
+    check.owner = _ownerPlace[0];
+    for (tmp.i = 1; tmp.i < _ownerPlace.length; tmp.i++) {
+      if (!(check.owner < _ownerPlace[tmp.i])) {
+	proc = -38;
 	return false;
       }
-      checkIDSort = _middleOfRange[i];
+      check.owner = _ownerPlace[tmp.i];
+    }
+    // 所有者が所有する分割対象がdivSizeの範囲に収まっているか(この条件を満たすために入力を階段状にする必要がある)
+    check.to = _toPlace[0];
+    for (tmp.i = 1; tmp.i < _toPlace.length; tmp.i++) {
+      if (!(check.to < _toPlace[tmp.i])) {
+	proc = -39;
+	return false;
+      }
+      check.to = _toPlace[tmp.i];
+    }
+
+    /** 受け手側により生成されたディジタル署名の検証 **/
+    for (tmp.i = 0; tmp.i < _to.length; tmp.i++) {
+      if (ecrecover(bytes32(sha3(_keyIDSpaceAndRange, _validateBlockHeight, _middleOfRange, _toPlace, _ownerPlace, _to)), _v[tmp.i], _r[tmp.i], _s[tmp.i]) != _to[tmp.i]) {
+	proc = -40;
+	return false; // ここに誰の所為で署名に失敗したか追加する
+      }
     }
     
-
-    /** 受け手側のディジタル署名機能はまだできていない **/
-
     /** 入力ID空間の無効化 **/
     // 譲渡ができないID空間(履歴)に
-    valid[keyOfIDSpace] = false;
+    valid64[keyInfo.keyIDSpace][keyInfo.keyRange] = false;
     
     /** 新しいID空間の出力 **/
     // 新しいID空間のKeyの記述
-    uint160 fwKeyOfIDSpace = uint160(startOfRange) << 80;
-    fwKeyOfIDSpace = fwKeyOfIDSpace + uint160(middleOfRange);
-    uint160 bwKeyOfIDSpace = uint160(middleOfRange + 1) << 80;
-    bwKeyOfIDSpace = bwKeyOfIDSpace + uint160(endOfRange);
+    // 送り先のデータベースの更新
+    for (tmp.i = 0; tmp.i < _to.length; tmp.i++) {
+      if (_toPlace[tmp.i] == 0) {
+	tmp.newKeyRange = (uint32(keyInfo.startOfRange) << 16) + uint32(_middleOfRange[_toPlace[tmp.i]]);
+	record64[keyInfo.keyIDSpace][tmp.newKeyRange].owner.addr = _to[tmp.i];
+      } else if (_toPlace[tmp.i] == _middleOfRange.length) {
+	tmp.newKeyRange = (uint32(_middleOfRange[_toPlace[tmp.i]]) << 16) + uint32(keyInfo.endOfRange);
+	record64[keyInfo.keyIDSpace][tmp.newKeyRange].owner.addr = _to[tmp.i];
+      } else {
+	tmp.newKeyRange = (uint32(_middleOfRange[_toPlace[tmp.i]]) << 16) + uint32(_middleOfRange[_toPlace[tmp.i]]);
+	record64[keyInfo.keyIDSpace][tmp.newKeyRange].owner.addr = _to[tmp.i];
+      }
+    }
+    // 所有者のデータベースの更新
+    for (tmp.i = 0; tmp.i < _ownerPlace.length; tmp.i++) {
+      if (_toPlace[tmp.i] == 0) {
+	tmp.newKeyRange = (uint32(keyInfo.startOfRange) << 16) + uint32(_middleOfRange[_ownerPlace[tmp.i]]);
+	record64[keyInfo.keyIDSpace][tmp.newKeyRange].owner.addr = msg.sender;
+      } else if (_toPlace[tmp.i] == _middleOfRange.length) {
+	tmp.newKeyRange = (uint32(_middleOfRange[_ownerPlace[tmp.i]]) << 16) + uint32(keyInfo.endOfRange);
+	record64[keyInfo.keyIDSpace][tmp.newKeyRange].owner.addr = msg.sender;
+      } else {
+	tmp.newKeyRange = (uint32(_middleOfRange[_ownerPlace[tmp.i]]) << 16) + uint32(_middleOfRange[_ownerPlace[tmp.i]]);
+	record64[keyInfo.keyIDSpace][tmp.newKeyRange].owner.addr = msg.sender;
+      }
+    }
+    proc = 4;
+    return true;
     
     // デバック用に変数を代入
+    /*
     // 1なら前半が自分への送り先、それ以外は相手への送り先
     if (_which == 1) {
       // 自分のID空間の所有権を記述
@@ -315,8 +386,8 @@ contract BulkedGIIAM {
     strLatestIDSpace[0] = bytes10(uint80((fwKeyOfIDSpace >> 80)));
     strLatestIDSpace[1] = bytes10(uint80(fwKeyOfIDSpace));
     latestIDSpace = fwKeyOfIDSpace;
-    proc = 2;
-    return true;
+    */
+
   } 
   
   // 所有権の確認
