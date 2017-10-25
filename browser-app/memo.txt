@@ -1,0 +1,20 @@
+[node.jsでサーバーを作る]
+https://ipl.sfc.keio.ac.jp/text/info2-2014-9/lecture-08/
+
+node sample.jsで動かす
+http://localhost:1234などとして接続
+
+fs = require("fs")を定義して
+fs.readFile("ファイルのディレクトリ")
+でthmlを引張てこれる
+
+server.6が掲示板でPOSTも使っていて参考になる
+
+[Node.jsでMySQLを使うメモ(読んでない)]
+https://qiita.com/PianoScoreJP/items/7ed172cd0e7846641e13
+
+[jsでのJSONの呼び出し]
+http://uxmilk.jp/46993
+
+[テンプレートエンジンejsの使い方について(条件分岐など)]
+https://qiita.com/y_hokkey/items/31f1daa6cecb5f4ea4c9

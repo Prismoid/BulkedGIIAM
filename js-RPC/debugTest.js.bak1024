@@ -1,0 +1,32 @@
+// Web3の利用
+var Web3 = require('web3');
+var web3 = new Web3();
+web3.setProvider(new web3.providers.HttpProvider('http://localhost:8545'));
+web3.eth.defaultAccount=web3.eth.accounts[0];
+
+// コントラクトの利用
+var provider = new Web3.providers.HttpProvider("http://localhost:8545");
+var contract = require("truffle-contract");
+var json = require("../build/contracts/BulkedGIIAM.json");
+var BulkedGIIAM = contract(json);
+BulkedGIIAM.setProvider(provider)
+
+// トランザクションを発行したり、変数を呼び出せる。テストに使えるが使いにくいことに注意する
+var deployed;
+BulkedGIIAM.deployed().then(function(instance) {
+    // ノードで関数呼び出し部, またはトランザクションの発行
+    deployed = instance;
+    return deployed.getProc.call({from: web3.eth.accounts[0]});
+}).then(function(result) {
+    // 返り値を用いて何かする
+    // Do something with the result or continue with more transactions.
+    console.log(result);
+    return deployed.getIDS.call({from: web3.eth.accounts[0]});
+}).then(function(result) {
+    console.log(result);
+    return deployed.getAddr64.call(0x1e0000ffff, {from: web3.eth.accounts[0]});
+}).then(function(result) {
+    console.log(result);
+}).catch(function(err) {
+    alert("ERROR! " + err.message);
+});
