@@ -227,6 +227,7 @@ contract BulkedGIIAM {
   
 
   //  譲渡トランザクションの生成
+  /**** _ownerPlaceはいらない(なぜなら_toPlaceに譲渡した後にthe othersを代入すれば良いから(既に所有者がいる所は無効にして代入していく)) ****/
   function transferIDSpace64(uint72 _keyIDSpaceAndRange, uint128 _validateBlockHeight, uint16[] _middleOfRange, uint8[] _toPlace, uint8[] _ownerPlace, address[] _to,
 			     uint8[] memory _v, bytes32[] memory _r, bytes32[] memory _s) public returns(bool){
     /** 変数の宣言 **/
