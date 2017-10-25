@@ -88,9 +88,6 @@ contract BulkedGIIAM {
     divLimit = 16;    
     
     // デバック変数の初期化
-    strKeyIDSpace = bytes5(0);
-    strRangeIDSpace[0] = bytes2(0);
-    strRangeIDSpace[1] = bytes2(0);
     strIDSpace = bytes9(0);
     proc = 0;
   }
@@ -221,8 +218,10 @@ contract BulkedGIIAM {
       record64[keyIDSpace][keyRange].pastDomain.push(record64[keyIDSpace][keyRange].domain);
     }
     // ドメイン名の更新
+    proc = 3;
     record64[keyIDSpace][keyRange].domain.name = _domain;
     record64[keyIDSpace][keyRange].domain.blockHeight = uint64(block.number);
+    return true;
   }
   
 
@@ -362,32 +361,6 @@ contract BulkedGIIAM {
     return true;
     
     // デバック用に変数を代入
-    /*
-    // 1なら前半が自分への送り先、それ以外は相手への送り先
-    if (_which == 1) {
-      // 自分のID空間の所有権を記述
-      owner[fwKeyOfIDSpace] = msg.sender;
-      issued[fwKeyOfIDSpace] = true;
-      valid[fwKeyOfIDSpace] = true;
-      // 送り先のID空間の所有権の記述
-      owner[bwKeyOfIDSpace] = _toAddress;
-      issued[bwKeyOfIDSpace] = true;
-      valid[bwKeyOfIDSpace] = true;
-    } else {
-      // 送り先のID空間の所有権を記述
-      owner[fwKeyOfIDSpace] = _toAddress;
-      issued[fwKeyOfIDSpace] = true;
-      valid[fwKeyOfIDSpace] = true;
-      // 自分のID空間の所有権の記述
-      owner[bwKeyOfIDSpace] = msg.sender;
-      issued[bwKeyOfIDSpace] = true;
-      valid[bwKeyOfIDSpace] = true;
-    }
-    // 正常終了、デバック用                                                                                                                                                          
-    strLatestIDSpace[0] = bytes10(uint80((fwKeyOfIDSpace >> 80)));
-    strLatestIDSpace[1] = bytes10(uint80(fwKeyOfIDSpace));
-    latestIDSpace = fwKeyOfIDSpace;
-    */
 
   } 
   
@@ -404,6 +377,11 @@ contract BulkedGIIAM {
   }
   function getIssued(uint40 _keyIDSpace) public returns(bool){
     return issued64[_keyIDSpace];
+  }
+  function getDomain64(uint72 _keyIDSpaceAndRange) public returns(string){
+    uint40 keyIDSpace = uint40(_keyIDSpaceAndRange >> 32);
+    uint32 keyRange = uint32(_keyIDSpaceAndRange);
+    return record64[keyIDSpace][keyRange].domain.name;
   }
 
   // ディジタル署名を検証するmメソッド
@@ -424,6 +402,7 @@ contract BulkedGIIAM {
   function getTransRightHashTest() public returns(bytes32){
     return hashTEST2;
   }
+  
       
   /*** Private メソッド ***/
 }
