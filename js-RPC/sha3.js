@@ -8,6 +8,13 @@ var Web3 = require('web3');
 var web3 = new Web3();
 web3.setProvider(new web3.providers.HttpProvider('http://localhost:8545'));
 web3.eth.defaultAccount=web3.eth.accounts[0]
+// コントラクトのインスタンスを作成
+
+var contract_json = require('../../TestForBulkedGIIAM/build/contracts/Test.json');
+var addr = contract_json.networks[1].address;
+var abi = contract_json.abi;
+var test = web3.eth.contract(abi).at(addr);
+
 
 /*** 使わなくなった外部ライブラリ ***/
 // (sha3withsizeはdefaultなどともできる)
@@ -38,5 +45,7 @@ console.log("sha3(0x0001): " + web3utils.soliditySha3({t: 'uint8', v: "0x01"}));
 console.log();
 console.log("--- 長いSha3の実行テスト --- ");
 var strAddrs = ["0xcd669c440a31f6f54a0fa583abf76fd2badeede7", "0xcd669c440a31f6f54a0fa583abf76fd2badeede7", "0xcd669c440a31f6f54a0fa583abf76fd2badeede7"];
+console.log("sha3(...): " + web3utils.soliditySha3({t: 'uint256[]', v: [0, 1]}, {t: 'uint256[]', v: []})); // 配列はuint256[]で受けるとうまく動く
+console.log("リモート: " + test.Sha3_42.call([0, 1], []));
 console.log("sha3(...): " + web3utils.soliditySha3({t: 'uint72', v: "0x000000001e0000ffff"}, {t: 'uint128', v: "0x01"}, {t: 'uint16[]', v: [0x0008, 0x0010, 0x00f0]},
 						      {t: 'uint8[]', v: [0x00, 0x01, 0x02]}, {t: 'address[]', v: strAddrs}));

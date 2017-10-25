@@ -383,6 +383,11 @@ contract BulkedGIIAM {
     uint32 keyRange = uint32(_keyIDSpaceAndRange);
     return record64[keyIDSpace][keyRange].domain.name;
   }
+  /*
+  function findLocation64(uint128 _keyGlobalID) public returns(bytes9){
+    return 
+  }
+  */
 
   // ディジタル署名を検証するmメソッド
   function verify(bytes32 _hashToSign, uint8 _v, bytes32 _r, bytes32 _s) constant returns(address) {
@@ -401,6 +406,10 @@ contract BulkedGIIAM {
   }
   function getTransRightHashTest() public returns(bytes32){
     return hashTEST2;
+  }
+  function getTransHash(uint72 _keyIDSpaceAndRange, uint128 _validateBlockHeight, uint16[] _middleOfRange, uint8[] _toPlace,
+		   uint8[] _ownerPlace, address[] _to) public returns(bytes32){
+    return sha3(_keyIDSpaceAndRange, _validateBlockHeight, _middleOfRange, _toPlace, _ownerPlace, _to);
   }
   
       
